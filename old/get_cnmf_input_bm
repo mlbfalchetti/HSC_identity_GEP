@@ -1,0 +1,391 @@
+# Samples:
+
+# Safi et al., 2022 
+# * hpc (CD34+); hsc (CD34+CD38-)
+# hpc young 1
+# hpc young 2
+# hpc old 1
+# hpc old 2
+# hsc young 1
+# hsc young 2
+# hsc old 1
+# hpc: mainly CD38/CD45RA low and CD90 high
+# hsc: mainly CD45RA low and CD90 high
+# also CD35 high and CD71 low and up-regulated RNAs (AVP, BST2, HLF, MLLT3, SOCS2...)
+
+# Zhang et al., 2024
+# * CD34+
+# GSM7836894 BF21
+# GSM7836897 WF26
+# GSM7836900 BM27
+# GSM7836903 WM34
+
+library(Seurat)
+
+#-- hpc young 1
+data <- Read10X(data.dir = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/raw_files/sk_2022/yBM1_hpc/")
+names(data)
+seurat <- CreateSeuratObject(counts = data[["Gene Expression"]], min.cells = 3, min.features = 200)
+adt <- data[["Antibody capture"]]
+head(rownames(adt))
+seurat <- subset(seurat, cells = intersect(colnames(seurat), colnames(adt)))
+adt <- adt[, intersect(colnames(seurat), colnames(adt))]
+seurat[["ADT"]] <- CreateAssayObject(counts = adt)
+DefaultAssay(seurat) <- "RNA"
+seurat[["percent.mt"]] <- PercentageFeatureSet(seurat, pattern = "^MT-")
+VlnPlot(seurat, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+seurat <- subset(seurat, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 15)
+seurat <- SCTransform(seurat, verbose = FALSE)
+seurat <- RunPCA(seurat, reduction.name = "pca_rna")
+DefaultAssay(seurat) <- "ADT"
+seurat <- NormalizeData(seurat, normalization.method = "CLR", margin = 2)
+seurat <- ScaleData(seurat)
+seurat <- RunPCA(seurat, reduction.name = "pca_adt", features = rownames(seurat[["ADT"]]))
+seurat <- FindMultiModalNeighbors(seurat, reduction.list = list("pca_rna", "pca_adt"), dims.list = list(1:30, 1:18))
+seurat <- RunUMAP(seurat, nn.name = "weighted.nn", reduction.name = "wnn.umap")
+seurat <- FindClusters(seurat, graph.name = "wsnn", resolution = 0.6)
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE)
+DefaultAssay(seurat) <- "ADT"
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE) + FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DefaultAssay(seurat) <- "SCT"
+Idents(seurat) <- "seurat_clusters"
+tmp <- FindMarkers(seurat, ident.1 = "0")
+tmp <- tmp[which(tmp$avg_log2FC > 1 & tmp$p_val_adj < 0.05), ]
+round(sum(c("AVP", "HLF", "FOS", "JUN", "CD164", "MECOM", "MLLT3", "MYCT1", "SPINK2") %in% rownames(tmp)) / 9 * 100, digits = 1)
+c("AVP", "HLF", "FOS", "JUN", "CD164", "MECOM", "MLLT3", "MYCT1", "SPINK2")[c("AVP", "HLF", "FOS", "JUN", "CD164", "MECOM", "MLLT3", "MYCT1", "SPINK2") %in% rownames(tmp)]
+seurat$hsc <- ifelse(seurat$seurat_clusters == "0", "hsc", "other")
+# save(seurat, file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_01_hpc_young.RData")
+# load(file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_01_hpc_young.RData")
+seurat <- subset(seurat, subset = seurat_clusters == "0")
+counts <- GetAssayData(seurat, assay = "RNA", layer = "counts")
+load(file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/useful_data/protein_coding_genes.RData")
+to_keep <- setdiff(
+  intersect(rownames(counts), protein_coding_genes),
+  grep("^RPS|^RPL|^MT-", rownames(counts), value = TRUE, ignore.case = TRUE)
+)
+counts <- counts[to_keep, , drop = FALSE]
+counts <- counts[Matrix::rowSums(counts) > 0, Matrix::colSums(counts) > 0]
+write.table(
+  t(as.matrix(counts)),
+  file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/cnmf_inputs_1.5/sk_2022_adult_bm_01_hpc_young.txt",
+  sep = "\t",
+  quote = FALSE,
+  row.names = TRUE,
+  col.names = TRUE
+)
+
+#-- hpc young 2
+data <- Read10X(data.dir = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/raw_files/sk_2022/yBM2_hpc/")
+names(data)
+seurat <- CreateSeuratObject(counts = data[["Gene Expression"]], min.cells = 3, min.features = 200)
+adt <- data[["Antibody capture"]]
+head(rownames(adt))
+seurat <- subset(seurat, cells = intersect(colnames(seurat), colnames(adt)))
+adt <- adt[, intersect(colnames(seurat), colnames(adt))]
+seurat[["ADT"]] <- CreateAssayObject(counts = adt)
+DefaultAssay(seurat) <- "RNA"
+seurat[["percent.mt"]] <- PercentageFeatureSet(seurat, pattern = "^MT-")
+VlnPlot(seurat, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+seurat <- subset(seurat, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 15)
+seurat <- SCTransform(seurat, verbose = FALSE)
+seurat <- RunPCA(seurat, reduction.name = "pca_rna")
+DefaultAssay(seurat) <- "ADT"
+seurat <- NormalizeData(seurat, normalization.method = "CLR", margin = 2)
+seurat <- ScaleData(seurat)
+seurat <- RunPCA(seurat, reduction.name = "pca_adt", features = rownames(seurat[["ADT"]]))
+seurat <- FindMultiModalNeighbors(seurat, reduction.list = list("pca_rna", "pca_adt"), dims.list = list(1:30, 1:18))
+seurat <- RunUMAP(seurat, nn.name = "weighted.nn", reduction.name = "wnn.umap")
+seurat <- FindClusters(seurat, graph.name = "wsnn", resolution = 0.6)
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE)
+DefaultAssay(seurat) <- "ADT"
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE) + FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DefaultAssay(seurat) <- "SCT"
+Idents(seurat) <- "seurat_clusters"
+FindMarkers(seurat, ident.1 = "0")
+seurat$hsc <- ifelse(seurat$seurat_clusters == "0", "hsc", "other")
+# save(seurat, file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_02_hpc_young.RData")
+# load(file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_02_hpc_young.RData")
+seurat <- subset(seurat, subset = seurat_clusters == "0")
+counts <- GetAssayData(seurat, assay = "RNA", layer = "counts")
+load(file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/useful_data/protein_coding_genes.RData")
+to_keep <- setdiff(
+  intersect(rownames(counts), protein_coding_genes),
+  grep("^RPS|^RPL|^MT-", rownames(counts), value = TRUE, ignore.case = TRUE)
+)
+counts <- counts[to_keep, , drop = FALSE]
+counts <- counts[Matrix::rowSums(counts) > 0, Matrix::colSums(counts) > 0]
+write.table(
+  t(as.matrix(counts)),
+  file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/cnmf_inputs_1.5/sk_2022_adult_bm_02_hpc_young.txt",
+  sep = "\t",
+  quote = FALSE,
+  row.names = TRUE,
+  col.names = TRUE
+)
+
+#-- hpc old 1 
+data <- Read10X(data.dir = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/raw_files/sk_2022/oBM1_hpc/")
+names(data)
+seurat <- CreateSeuratObject(counts = data[["Gene Expression"]], min.cells = 3, min.features = 200)
+adt <- data[["Antibody capture"]]
+head(rownames(adt))
+seurat <- subset(seurat, cells = intersect(colnames(seurat), colnames(adt)))
+adt <- adt[, intersect(colnames(seurat), colnames(adt))]
+seurat[["ADT"]] <- CreateAssayObject(counts = adt)
+DefaultAssay(seurat) <- "RNA"
+seurat[["percent.mt"]] <- PercentageFeatureSet(seurat, pattern = "^MT-")
+VlnPlot(seurat, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+seurat <- subset(seurat, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 15)
+seurat <- SCTransform(seurat, verbose = FALSE)
+seurat <- RunPCA(seurat, reduction.name = "pca_rna")
+DefaultAssay(seurat) <- "ADT"
+seurat <- NormalizeData(seurat, normalization.method = "CLR", margin = 2)
+seurat <- ScaleData(seurat)
+seurat <- RunPCA(seurat, reduction.name = "pca_adt", features = rownames(seurat[["ADT"]]))
+seurat <- FindMultiModalNeighbors(seurat, reduction.list = list("pca_rna", "pca_adt"), dims.list = list(1:30, 1:18))
+seurat <- RunUMAP(seurat, nn.name = "weighted.nn", reduction.name = "wnn.umap")
+seurat <- FindClusters(seurat, graph.name = "wsnn", resolution = 0.6)
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE)
+DefaultAssay(seurat) <- "ADT"
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE) + FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DefaultAssay(seurat) <- "SCT"
+Idents(seurat) <- "seurat_clusters"
+tmp <- FindAllMarkers(seurat)
+tmp[which(tmp$gene == "ADT-CD90"), ] # 3 has ADT-CD90 up-regulated
+tmp[which(tmp$cluster == 3), ] # ADT-CD35 negative?
+tmp <- FindMarkers(seurat, ident.1 = c("3"))
+seurat <- subset(seurat, subset = seurat_clusters %in% c("3", "4", "5", "6", "7", "8", "9", "10", "11"))
+tmp <- FindMarkers(seurat, ident.1 = c("3")) # Now is ok!
+# 3 = HSC
+seurat$hsc <- ifelse(seurat$seurat_clusters == "3", "hsc", "other")
+# save(seurat, file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_01_hpc_old.RData")
+# load(file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_01_hpc_old.RData")
+seurat <- subset(seurat, subset = seurat_clusters == "3")
+counts <- GetAssayData(seurat, assay = "RNA", layer = "counts")
+load(file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/useful_data/protein_coding_genes.RData")
+to_keep <- setdiff(
+  intersect(rownames(counts), protein_coding_genes),
+  grep("^RPS|^RPL|^MT-", rownames(counts), value = TRUE, ignore.case = TRUE)
+)
+counts <- counts[to_keep, , drop = FALSE]
+counts <- counts[Matrix::rowSums(counts) > 0, Matrix::colSums(counts) > 0]
+write.table(
+  t(as.matrix(counts)),
+  file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/cnmf_inputs_1.5/sk_2022_adult_bm_01_hpc_old.txt",
+  sep = "\t",
+  quote = FALSE,
+  row.names = TRUE,
+  col.names = TRUE
+)
+
+#-- hpc old 2
+data <- Read10X(data.dir = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/raw_files/sk_2022/oBM2_hpc/")
+names(data)
+seurat <- CreateSeuratObject(counts = data[["Gene Expression"]], min.cells = 3, min.features = 200)
+adt <- data[["Antibody capture"]]
+head(rownames(adt))
+seurat <- subset(seurat, cells = intersect(colnames(seurat), colnames(adt)))
+adt <- adt[, intersect(colnames(seurat), colnames(adt))]
+seurat[["ADT"]] <- CreateAssayObject(counts = adt)
+DefaultAssay(seurat) <- "RNA"
+seurat[["percent.mt"]] <- PercentageFeatureSet(seurat, pattern = "^MT-")
+VlnPlot(seurat, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+seurat <- subset(seurat, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 15)
+seurat <- SCTransform(seurat, verbose = FALSE)
+seurat <- RunPCA(seurat, reduction.name = "pca_rna")
+DefaultAssay(seurat) <- "ADT"
+seurat <- NormalizeData(seurat, normalization.method = "CLR", margin = 2)
+seurat <- ScaleData(seurat)
+seurat <- RunPCA(seurat, reduction.name = "pca_adt", features = rownames(seurat[["ADT"]]))
+seurat <- FindMultiModalNeighbors(seurat, reduction.list = list("pca_rna", "pca_adt"), dims.list = list(1:30, 1:18))
+seurat <- RunUMAP(seurat, nn.name = "weighted.nn", reduction.name = "wnn.umap")
+seurat <- FindClusters(seurat, graph.name = "wsnn", resolution = 0.6)
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE)
+DefaultAssay(seurat) <- "ADT"
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE) + FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DefaultAssay(seurat) <- "SCT"
+Idents(seurat) <- "seurat_clusters"
+tmp <- FindAllMarkers(seurat)
+tmp[which(tmp$gene == "ADT-CD90"), ] # 1 and 0 has ADT-CD90 up-regulated
+FindMarkers(seurat, ident.1 = "1", ident.2 = "0") # ADT-CD90/ADT-CD49F higher, ADT-CD38 lower
+tmp <- FindMarkers(seurat, ident.1 = "1")
+tmp <- FindMarkers(seurat, ident.1 = "1", ident.2 = "0")
+# 1 = HSC
+seurat$hsc <- ifelse(seurat$seurat_clusters == "1", "hsc", "other")
+# save(seurat, file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_02_hpc_old.RData")
+# load(file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_02_hpc_old.RData")
+seurat <- subset(seurat, subset = seurat_clusters == "1")
+counts <- GetAssayData(seurat, assay = "RNA", layer = "counts")
+load(file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/useful_data/protein_coding_genes.RData")
+to_keep <- setdiff(
+  intersect(rownames(counts), protein_coding_genes),
+  grep("^RPS|^RPL|^MT-", rownames(counts), value = TRUE, ignore.case = TRUE)
+)
+counts <- counts[to_keep, , drop = FALSE]
+counts <- counts[Matrix::rowSums(counts) > 0, Matrix::colSums(counts) > 0]
+write.table(
+  t(as.matrix(counts)),
+  file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/cnmf_inputs_1.5/sk_2022_adult_bm_02_hpc_old.txt",
+  sep = "\t",
+  quote = FALSE,
+  row.names = TRUE,
+  col.names = TRUE
+)
+
+#-- hsc young 1
+data <- Read10X(data.dir = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/raw_files/sk_2022/yBM1_hsc/")
+names(data)
+seurat <- CreateSeuratObject(counts = data[["Gene Expression"]], min.cells = 3, min.features = 200)
+adt <- data[["Antibody capture"]]
+head(rownames(adt))
+seurat <- subset(seurat, cells = intersect(colnames(seurat), colnames(adt)))
+adt <- adt[, intersect(colnames(seurat), colnames(adt))]
+seurat[["ADT"]] <- CreateAssayObject(counts = adt)
+DefaultAssay(seurat) <- "RNA"
+seurat[["percent.mt"]] <- PercentageFeatureSet(seurat, pattern = "^MT-")
+VlnPlot(seurat, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+seurat <- subset(seurat, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 15)
+seurat <- SCTransform(seurat, verbose = FALSE)
+seurat <- RunPCA(seurat, reduction.name = "pca_rna")
+DefaultAssay(seurat) <- "ADT"
+seurat <- NormalizeData(seurat, normalization.method = "CLR", margin = 2)
+seurat <- ScaleData(seurat)
+seurat <- RunPCA(seurat, reduction.name = "pca_adt", features = rownames(seurat[["ADT"]]))
+seurat <- FindMultiModalNeighbors(seurat, reduction.list = list("pca_rna", "pca_adt"), dims.list = list(1:30, 1:18))
+seurat <- RunUMAP(seurat, nn.name = "weighted.nn", reduction.name = "wnn.umap")
+seurat <- FindClusters(seurat, graph.name = "wsnn", resolution = 0.6)
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE)
+DefaultAssay(seurat) <- "ADT"
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE) + FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD35"))
+DefaultAssay(seurat) <- "SCT"
+Idents(seurat) <- "seurat_clusters"
+FindMarkers(seurat, ident.1 = c("0", "1", "3", "4", "5", "6")) # cluster 2: high CD45RA
+seurat$hsc <- ifelse(seurat$seurat_clusters %in% c("0", "1", "3", "4", "5", "6"), "hsc", "other")
+# save(seurat, file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_01_hsc_young.RData")
+# load(file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_01_hsc_young.RData")
+seurat <- subset(seurat, subset = seurat_clusters %in% c("0", "1", "3", "4", "5", "6"))
+counts <- GetAssayData(seurat, assay = "RNA", layer = "counts")
+load(file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/useful_data/protein_coding_genes.RData")
+to_keep <- setdiff(
+  intersect(rownames(counts), protein_coding_genes),
+  grep("^RPS|^RPL|^MT-", rownames(counts), value = TRUE, ignore.case = TRUE)
+)
+counts <- counts[to_keep, , drop = FALSE]
+counts <- counts[Matrix::rowSums(counts) > 0, Matrix::colSums(counts) > 0]
+write.table(
+  t(as.matrix(counts)),
+  file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/cnmf_inputs_1.5/sk_2022_adult_bm_01_hsc_young.txt",
+  sep = "\t",
+  quote = FALSE,
+  row.names = TRUE,
+  col.names = TRUE
+)
+
+#-- hsc young 2
+data <- Read10X(data.dir = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/raw_files/sk_2022/yBM2_hsc/")
+names(data)
+seurat <- CreateSeuratObject(counts = data[["Gene Expression"]], min.cells = 3, min.features = 200)
+adt <- data[["Antibody capture"]]
+head(rownames(adt))
+seurat <- subset(seurat, cells = intersect(colnames(seurat), colnames(adt)))
+adt <- adt[, intersect(colnames(seurat), colnames(adt))]
+seurat[["ADT"]] <- CreateAssayObject(counts = adt)
+DefaultAssay(seurat) <- "RNA"
+seurat[["percent.mt"]] <- PercentageFeatureSet(seurat, pattern = "^MT-")
+VlnPlot(seurat, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+seurat <- subset(seurat, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 15)
+seurat <- SCTransform(seurat, verbose = FALSE)
+seurat <- RunPCA(seurat, reduction.name = "pca_rna")
+DefaultAssay(seurat) <- "ADT"
+seurat <- NormalizeData(seurat, normalization.method = "CLR", margin = 2)
+seurat <- ScaleData(seurat)
+seurat <- RunPCA(seurat, reduction.name = "pca_adt", features = rownames(seurat[["ADT"]]))
+seurat <- FindMultiModalNeighbors(seurat, reduction.list = list("pca_rna", "pca_adt"), dims.list = list(1:30, 1:18))
+seurat <- RunUMAP(seurat, nn.name = "weighted.nn", reduction.name = "wnn.umap")
+seurat <- FindClusters(seurat, graph.name = "wsnn", resolution = 0.6)
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE)
+DefaultAssay(seurat) <- "ADT"
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE) + FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD35"))
+DefaultAssay(seurat) <- "SCT"
+Idents(seurat) <- "seurat_clusters"
+FindMarkers(seurat, ident.1 = c("0", "1", "2", "3", "4", "6", "7", "8")) # cluster 5: high CD45RA
+seurat$hsc <- ifelse(seurat$seurat_clusters %in% c("0", "1", "2", "3", "4", "6", "7", "8"), "hsc", "other")
+# save(seurat, file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_02_hsc_young.RData")
+# load(file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_02_hsc_young.RData")
+seurat <- subset(seurat, subset = seurat_clusters %in% c("0", "1", "2", "3", "4", "6", "7", "8"))
+counts <- GetAssayData(seurat, assay = "RNA", layer = "counts")
+load(file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/useful_data/protein_coding_genes.RData")
+to_keep <- setdiff(
+  intersect(rownames(counts), protein_coding_genes),
+  grep("^RPS|^RPL|^MT-", rownames(counts), value = TRUE, ignore.case = TRUE)
+)
+counts <- counts[to_keep, , drop = FALSE]
+counts <- counts[Matrix::rowSums(counts) > 0, Matrix::colSums(counts) > 0]
+write.table(
+  t(as.matrix(counts)),
+  file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/cnmf_inputs_1.5/sk_2022_adult_bm_02_hsc_young.txt",
+  sep = "\t",
+  quote = FALSE,
+  row.names = TRUE,
+  col.names = TRUE
+)
+
+#-- hsc old 1
+data <- Read10X(data.dir = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/raw_files/sk_2022/oBM1_hsc/")
+names(data)
+seurat <- CreateSeuratObject(counts = data[["Gene Expression"]], min.cells = 3, min.features = 200)
+adt <- data[["Antibody capture"]]
+head(rownames(adt))
+seurat <- subset(seurat, cells = intersect(colnames(seurat), colnames(adt)))
+adt <- adt[, intersect(colnames(seurat), colnames(adt))]
+seurat[["ADT"]] <- CreateAssayObject(counts = adt)
+DefaultAssay(seurat) <- "RNA"
+seurat[["percent.mt"]] <- PercentageFeatureSet(seurat, pattern = "^MT-")
+VlnPlot(seurat, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+seurat <- subset(seurat, subset = nFeature_RNA > 200 & nFeature_RNA < 6000 & percent.mt < 15)
+seurat <- SCTransform(seurat, verbose = FALSE)
+seurat <- RunPCA(seurat, reduction.name = "pca_rna")
+DefaultAssay(seurat) <- "ADT"
+seurat <- NormalizeData(seurat, normalization.method = "CLR", margin = 2)
+seurat <- ScaleData(seurat)
+seurat <- RunPCA(seurat, reduction.name = "pca_adt", features = rownames(seurat[["ADT"]]))
+seurat <- FindMultiModalNeighbors(seurat, reduction.list = list("pca_rna", "pca_adt"), dims.list = list(1:30, 1:18))
+seurat <- RunUMAP(seurat, nn.name = "weighted.nn", reduction.name = "wnn.umap")
+seurat <- FindClusters(seurat, graph.name = "wsnn", resolution = 0.6)
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE)
+DefaultAssay(seurat) <- "ADT"
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+DimPlot(seurat, reduction = "wnn.umap", group.by = "seurat_clusters", label = TRUE) + FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD34", "ADT-CD38", "ADT-CD45RA", "ADT-CD90", "ADT-CD49F"))
+FeaturePlot(seurat, reduction = "wnn.umap", features = c("ADT-CD35"))
+DefaultAssay(seurat) <- "SCT"
+Idents(seurat) <- "seurat_clusters"
+FindMarkers(seurat, ident.1 = c("0", "1", "2", "3", "7", "8")) # cluster 6: high CD45RA
+FindMarkers(seurat, ident.1 = c("0", "2", "3", "7", "8"), ident.2 = "1") # cluster 1: mt- heavy
+seurat$hsc <- ifelse(seurat$seurat_clusters %in% c("0", "2", "3", "7", "8"), "hsc", "other")
+# save(seurat, file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_01_hsc_old.RData")
+# load(file = "/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/seurat_obj_1.3/sk_2022_adult_bm_01_hsc_old.RData")
+seurat <- subset(seurat, subset = seurat_clusters %in% c("0", "2", "3", "7", "8"))
+counts <- GetAssayData(seurat, assay = "RNA", layer = "counts")
+load(file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/useful_data/protein_coding_genes.RData")
+to_keep <- setdiff(
+  intersect(rownames(counts), protein_coding_genes),
+  grep("^RPS|^RPL|^MT-", rownames(counts), value = TRUE, ignore.case = TRUE)
+)
+counts <- counts[to_keep, , drop = FALSE]
+counts <- counts[Matrix::rowSums(counts) > 0, Matrix::colSums(counts) > 0]
+write.table(
+  t(as.matrix(counts)),
+  file = "C:/Users/marce/OneDrive/Área de Trabalho/bch/m_falchetti/cnmf_inputs_1.5/sk_2022_adult_bm_01_hsc_old.txt",
+  sep = "\t",
+  quote = FALSE,
+  row.names = TRUE,
+  col.names = TRUE
+)
